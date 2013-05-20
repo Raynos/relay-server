@@ -1,0 +1,11 @@
+{
+    "launchers": {
+        "node": {
+            "command": "node ./test"
+        }
+    },
+    "src_files": [
+        "./**/*.js"
+    ],
+    "launch_in_dev": ["node"]
+}

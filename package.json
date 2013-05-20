@@ -1,0 +1,41 @@
+{
+  "name": "relay-server",
+  "version": "0.1.0",
+  "description": "Server used to relay deltas",
+  "keywords": [],
+  "author": "Raynos <raynos2@gmail.com>",
+  "repository": "git://github.com/Colingo/relay-server.git",
+  "main": "index",
+  "homepage": "https://github.com/Colingo/relay-server",
+  "contributors": [
+    {
+      "name": "Raynos"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/Colingo/relay-server/issues",
+    "email": "raynos2@gmail.com"
+  },
+  "dependencies": {
+    "routes": "~0.2.0",
+    "send-data": "~1.1.2",
+    "header-stream": "~0.1.4",
+    "after": "~0.7.0"
+  },
+  "devDependencies": {
+    "tape": "~1.0.2",
+    "body": "~1.1.0",
+    "request": "~2.21.0",
+    "uuid": "~1.4.1",
+    "split": "~0.2.5"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/Colingo/relay-server/raw/master/LICENSE"
+    }
+  ],
+  "scripts": {
+    "test": "node ./test/index.js"
+  }
+}
