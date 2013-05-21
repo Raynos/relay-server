@@ -41,10 +41,10 @@ test("create server", function (assert) {
     })
 
     assert.ok(servers)
-    assert.equal(typeof servers.http.read.listen, "function")
+    assert.equal(typeof servers.http.server.listen, "function")
     assert.equal(typeof servers.tcp.listen, "function")
 
-    servers.http.read.listen(HTTP_PORT, function () {
+    servers.http.server.listen(HTTP_PORT, function () {
         servers.tcp.listen(TCP_PORT, function () {
             assert.end()
         })
