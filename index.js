@@ -13,9 +13,6 @@ var WebSocketStream = require("websocket-stream")
 var shoe = require("./lib/patched-shoe")
 var TimePurgedQueue = require("./lib/time-purged-queue")
 
-var SECOND = 1000
-var MINUTE = 60 * SECOND
-
 module.exports = RelayServer
 
 /*
@@ -32,7 +29,7 @@ module.exports = RelayServer
 */
 function RelayServer(routes, options) {
     options = options || {}
-    var timeToLive = options.timeToLive || MINUTE * 2
+    var timeToLive = options.timeToLive || 20 * 1000
     var sockets = []
     var history = TimePurgedQueue(timeToLive)
 
