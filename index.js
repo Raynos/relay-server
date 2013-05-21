@@ -78,18 +78,20 @@ function RelayServer(routes, options) {
         splitted.once("data", function headerHandler(chunk) {
             var meta = JSON.parse(chunk)
 
-            var metaUri = meta.uri || ""
-            var metaRegexp = Router.pathToRegExp(metaUri)
-            sockets.push(new SocketMessage(socket, metaUri, metaRegexp))
+            if (!meta.writeOnly) {
+                var metaUri = meta.uri || ""
+                var metaRegexp = Router.pathToRegExp(metaUri)
+                sockets.push(new SocketMessage(socket, metaUri, metaRegexp))
 
-            var queue = history.queue
+                var queue = history.queue
 
-            for (var i = 0; i < queue.length; i++) {
-                var tuple = queue[i]
-                var value = tuple.value
+                for (var i = 0; i < queue.length; i++) {
+                    var tuple = queue[i]
+                    var value = tuple.value
 
-                if (metaRegexp.test(value.uri)) {
-                    socket.write(tuple.buffer)
+                    if (metaRegexp.test(value.uri)) {
+                        socket.write(tuple.buffer)
+                    }
                 }
             }
 
