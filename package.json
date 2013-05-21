@@ -20,14 +20,16 @@
     "routes": "~0.2.0",
     "send-data": "~1.1.2",
     "header-stream": "~0.1.4",
-    "after": "~0.7.0"
+    "after": "~0.7.0",
+    "engine.io-stream": "~0.3.0"
   },
   "devDependencies": {
     "tape": "~1.0.2",
     "body": "~1.1.0",
     "request": "~2.21.0",
     "uuid": "~1.4.1",
-    "split": "~0.2.5"
+    "split": "~0.2.5",
+    "ws": "~0.4.25"
   },
   "licenses": [
     {

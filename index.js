@@ -6,6 +6,7 @@ var Router = require("routes")
 var sendError = require("send-data/error")
 var after = require("after")
 var split = require("split")
+var EngineServer = require("engine.io-stream/server")
 
 var TimePurgedQueue = require("./lib/time-purged-queue")
 
@@ -35,6 +36,9 @@ function RelayServer(routes, options) {
     var requestHandler = RelayRequestHandler(routes, options, relayMessage)
     var httpServer = http.createServer(requestHandler)
     var tcpServer = net.createServer(socketListener)
+    var engine = EngineServer(socketListener)
+
+    engine.attach(httpServer, "/engine")
 
     return {
         http: httpServer,
@@ -62,7 +66,6 @@ function RelayServer(routes, options) {
     function socketListener(socket) {
         var splitted = socket.pipe(split())
 
-        // 0.8.x Need to add data listener or TCP wont flow
         splitted.once("data", function headerHandler(buffer) {
             var meta = JSON.parse(String(buffer))
 

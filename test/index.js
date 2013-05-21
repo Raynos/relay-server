@@ -3,8 +3,10 @@ var net = require("net")
 var request = require("request")
 var test = require("tape")
 var jsonBody = require("body/json")
+var sendJson = require("send-data/json")
 var uuid = require("uuid")
 var split = require("split")
+var WebSocket = require("ws")
 
 var RelayServer = require("../index")
 
@@ -19,7 +21,7 @@ test("RelayServer is a function", function (assert) {
 
 test("create server", function (assert) {
     servers = RelayServer({
-        "/*": function (req, res, _, callback) {
+        "/*": function acceptEverything(req, res, _, callback) {
             var pathname = url.parse(req.url).pathname
             jsonBody(req, res, function (err, body) {
                 if (err) {
@@ -27,8 +29,7 @@ test("create server", function (assert) {
                 }
 
                 callback(null, { uri: pathname, verb: req.method, body: body })
-
-                res.end("\"OK\"")
+                sendJson(req, res, "OK")
             })
         }
     })
@@ -83,6 +84,18 @@ test("POST with open socket", function (assert) {
         assert.end()
     })
 })
+
+// test("POST with open engine.io socket", function (assert) {
+//     // var id = uuid()
+
+//     var socket = new WebSocket("ws://localhost:" + HTTP_PORT + "/engine/")
+
+//     socket.on("open", function () {
+//         console.log("CONNECTED!")
+
+//         assert.end()
+//     })
+// })
 
 test("close servers", function (assert) {
     servers.close(function (err) {
