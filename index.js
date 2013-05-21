@@ -29,7 +29,14 @@ module.exports = RelayServer
         sockJS: Boolean,
         engineIO: Boolean,
         sharedHttp: Boolean
-    }) => { http: HttpServer, tcp: NetServer }
+    }) => {
+        http: {
+            read: HttpServer,
+            write: HttpServer,
+            server: HttpServer
+        },
+        tcp: NetServer
+    }
 */
 function RelayServer(routes, options) {
     options = options || {}
