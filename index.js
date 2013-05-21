@@ -2,12 +2,15 @@ var http = require("http")
 var net = require("net")
 var url = require("url")
 var Buffer = require("buffer").Buffer
+
 var Router = require("routes")
 var sendError = require("send-data/error")
 var after = require("after")
 var split = require("split")
-var EngineServer = require("engine.io-stream/server")
+var EngineIO = require("engine.io")
+var WebSocketStream = require("websocket-stream")
 
+var shoe = require("./lib/patched-shoe")
 var TimePurgedQueue = require("./lib/time-purged-queue")
 
 var SECOND = 1000
@@ -35,10 +38,19 @@ function RelayServer(routes, options) {
 
     var requestHandler = RelayRequestHandler(routes, options, relayMessage)
     var httpServer = http.createServer(requestHandler)
-    var tcpServer = net.createServer(socketListener)
-    var engine = EngineServer(socketListener)
+    var tcpServer = net.createServer(function netHandler(socket) {
+        socketListener(socket, true)
+    })
+    var sock = shoe({
+        disconnect_delay: 5000
+    }, socketListener)
 
-    engine.attach(httpServer, "/engine")
+    var engineServer = EngineIO.attach(httpServer)
+    sock.install(httpServer, "/shoe")
+
+    engineServer.on("connection", function socketHandler(socket) {
+        socketListener(WebSocketStream(socket))
+    })
 
     return {
         http: httpServer,
@@ -63,11 +75,11 @@ function RelayServer(routes, options) {
         }
     }
 
-    function socketListener(socket) {
+    function socketListener(socket, isTrusted) {
         var splitted = socket.pipe(split())
 
-        splitted.once("data", function headerHandler(buffer) {
-            var meta = JSON.parse(String(buffer))
+        splitted.once("data", function headerHandler(chunk) {
+            var meta = JSON.parse(chunk)
 
             var metaUri = meta.uri || ""
             var metaRegexp = Router.pathToRegExp(metaUri)
@@ -83,7 +95,27 @@ function RelayServer(routes, options) {
                     socket.write(tuple.buffer)
                 }
             }
+
+            if (isTrusted) {
+                splitted.on("data", relay)
+            }
         })
+
+        function relay(chunk) {
+            if (chunk === "") {
+                return
+            }
+
+            var message = JSON.parse(chunk)
+
+            if (typeof message.uri === "string" &&
+                typeof message.verb === "string" &&
+                "body" in message
+            ) {
+                relayMessage(new RelayMessage(message.uri,
+                    message.verb, message.body))
+            }
+        }
 
         socket.once("close", function closeHandler() {
             for (var i = 0; i < sockets.length; i++) {
@@ -100,9 +132,16 @@ function RelayServer(routes, options) {
         var forward = after(2, callback)
 
         history.destroy()
+        engineServer.close()
         httpServer.close(forward)
         tcpServer.close(forward)
     }
+}
+
+function RelayMessage(uri, verb, body) {
+    this.uri = uri
+    this.verb = verb
+    this.body = body
 }
 
 function SocketMessage(socket, uri, metaRegexp) {
@@ -140,8 +179,16 @@ function RelayRequestHandler(routes, options, relayMessage) {
                     return errorHandler(req, res, err)
                 }
 
-                if (message) {
-                    relayMessage(message)
+                if (!message) {
+                    return
+                }
+
+                if (typeof message.uri === "string" &&
+                    typeof message.verb === "string" &&
+                    "body" in message
+                ) {
+                    relayMessage(new RelayMessage(message.uri,
+                        message.verb, message.body))
                 }
             })
     }
