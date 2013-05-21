@@ -7,7 +7,7 @@ var Router = require("routes")
 var sendError = require("send-data/error")
 var after = require("after")
 var split = require("split")
-var EngineIO = require("engine.io")
+var EngineServer = require("engine.io").Server
 var WebSocketStream = require("websocket-stream")
 
 var shoe = require("./lib/patched-shoe")
@@ -33,20 +33,56 @@ function RelayServer(routes, options) {
     var sockets = []
     var history = TimePurgedQueue(timeToLive)
 
-    var requestHandler = RelayRequestHandler(routes, options, relayMessage)
-    var httpServer = http.createServer(requestHandler)
+    var relayHandler = RelayRequestHandler(routes, options, relayMessage)
+    var httpServer = http.createServer()
     var tcpServer = net.createServer(function netHandler(socket) {
-        socketListener(socket, true)
+        var splitted = socket.pipe(split())
+
+        splitted.once("data", function headerHandler(chunk) {
+            var meta = JSON.parse(chunk)
+
+            if (meta.uri) {
+                socket.uri = "/?uri=" + meta.uri
+                socketListener(socket)
+            }
+
+            splitted.on("data", relay)
+        })
     })
-    var sock = shoe({
-        disconnect_delay: 5000
-    }, socketListener)
 
-    var engineServer = EngineIO.attach(httpServer)
-    sock.install(httpServer, "/shoe")
+    var sock = shoe(function sockHandler(socket) {
+        socket.uri = socket.url
+        socketListener(socket)
+    })
+    var sockHandler = sock.listener({ prefix: "/shoe" }).getHandler()
+    var engineServer = new EngineServer()
 
-    engineServer.on("connection", function socketHandler(socket) {
-        socketListener(WebSocketStream(socket))
+    engineServer.on("connection", function engineHandler(socket) {
+        var stream = WebSocketStream(socket)
+        stream.uri = socket.request.url
+
+        socketListener(stream)
+    })
+
+    httpServer.on("request", function onRequest(req, res) {
+        var uri = url.parse(req.url).pathname
+
+        if (uri.substr(0, 5) === "/shoe") {
+            sockHandler(req, res)
+        } else if (uri.substr(0, 7) === "/engine") {
+            engineServer.handleRequest(req, res)
+        } else {
+            relayHandler(req, res)
+        }
+
+    })
+    httpServer.on("upgrade", function onUpgrade(req, socket, head) {
+        var uri = url.parse(req.url).pathname
+        if (uri.substr(0, 5) === "/shoe") {
+            sockHandler(req, socket, head)
+        } else if (uri.substr(0, 7) === "/engine") {
+            engineServer.handleUpgrade(req, socket, head)
+        }
     })
 
     return {
@@ -55,6 +91,20 @@ function RelayServer(routes, options) {
         close: close,
         _sockets: sockets,
         _history: history
+    }
+
+    function relay(chunk) {
+        if (chunk) {
+            var message = JSON.parse(chunk)
+
+            if (typeof message.uri === "string" &&
+                typeof message.verb === "string" &&
+                typeof message.body !== "undefined"
+            ) {
+                relayMessage(new RelayMessage(message.uri,
+                    message.verb, message.body))
+            }
+        }
     }
 
     function relayMessage(message) {
@@ -72,45 +122,20 @@ function RelayServer(routes, options) {
         }
     }
 
-    function socketListener(socket, isTrusted) {
-        var splitted = socket.pipe(split())
+    function socketListener(socket) {
+        var metaUri = url.parse(socket.uri, true).query.uri
 
-        splitted.once("data", function headerHandler(chunk) {
-            var meta = JSON.parse(chunk)
+        var metaRegexp = Router.pathToRegExp(metaUri)
+        sockets.push(new SocketMessage(socket, metaUri, metaRegexp))
 
-            if (!meta.writeOnly) {
-                var metaUri = meta.uri || ""
-                var metaRegexp = Router.pathToRegExp(metaUri)
-                sockets.push(new SocketMessage(socket, metaUri, metaRegexp))
+        var queue = history.queue
 
-                var queue = history.queue
+        for (var i = 0; i < queue.length; i++) {
+            var tuple = queue[i]
+            var value = tuple.value
 
-                for (var i = 0; i < queue.length; i++) {
-                    var tuple = queue[i]
-                    var value = tuple.value
-
-                    if (metaRegexp.test(value.uri)) {
-                        socket.write(tuple.buffer)
-                    }
-                }
-            }
-
-            if (isTrusted) {
-                splitted.on("data", relay)
-            }
-        })
-
-        function relay(chunk) {
-            if (chunk) {
-                var message = JSON.parse(chunk)
-
-                if (typeof message.uri === "string" &&
-                    typeof message.verb === "string" &&
-                    typeof message.body !== "undefined"
-                ) {
-                    relayMessage(new RelayMessage(message.uri,
-                        message.verb, message.body))
-                }
+            if (metaRegexp.test(value.uri)) {
+                socket.write(tuple.buffer)
             }
         }
 

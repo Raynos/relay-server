@@ -91,12 +91,10 @@ test("POST with open sockJS socket", function (assert) {
     var id = uuid()
 
     var socket = new WebSocket("ws://localhost:" + HTTP_PORT +
-        "/shoe/websocket")
+        "/shoe/websocket?uri=/bar")
     var stream = WebSocketStream(socket)
 
     stream.on("open", function () {
-        stream.write(JSON.stringify({ uri: "/bar" }) + "\n")
-
         request({
             uri: "http://localhost:" + HTTP_PORT + "/bar",
             method: "POST",
@@ -129,12 +127,13 @@ test("POST with open sockJS socket", function (assert) {
 test("POST with open engine.io socket", function (assert) {
     var id = uuid()
 
-    var socket = new EngineSocket("ws://localhost:" + HTTP_PORT)
+    var socket = new EngineSocket("ws://localhost:" + HTTP_PORT, {
+        transports: ["websocket"],
+        query: { uri: "/baz" }
+    })
     var stream = WebSocketStream(socket)
 
     stream.on("open", function () {
-        stream.write(JSON.stringify({ uri: "/baz" }) + "\n")
-
         request({
             uri: "http://localhost:" + HTTP_PORT + "/baz",
             method: "POST",
@@ -205,14 +204,5 @@ test("close servers", function (assert) {
         assert.ifError(err)
 
         assert.end()
-
-        // setInterval(function () {
-        //     var handles = process._getActiveHandles()
-        //     console.log("process", process._getActiveHandles())
-
-        //     if (handles.length <= 1) {
-        //         process.exit(0)
-        //     }
-        // }, 1000)
     })
 })
