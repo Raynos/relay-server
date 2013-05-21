@@ -101,18 +101,16 @@ function RelayServer(routes, options) {
         })
 
         function relay(chunk) {
-            if (chunk === "") {
-                return
-            }
+            if (chunk) {
+                var message = JSON.parse(chunk)
 
-            var message = JSON.parse(chunk)
-
-            if (typeof message.uri === "string" &&
-                typeof message.verb === "string" &&
-                "body" in message
-            ) {
-                relayMessage(new RelayMessage(message.uri,
-                    message.verb, message.body))
+                if (typeof message.uri === "string" &&
+                    typeof message.verb === "string" &&
+                    typeof message.body !== "undefined"
+                ) {
+                    relayMessage(new RelayMessage(message.uri,
+                        message.verb, message.body))
+                }
             }
         }
 
