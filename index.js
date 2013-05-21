@@ -24,87 +24,67 @@ module.exports = RelayServer
 
     RelayServer := (routes: Object<String, RouteHandler>, options: {
         notFound: (req, res) => void,
-        errorHandler: (req, res) => void
+        errorHandler: (req, res) => void,
+        tcp: Boolean,
+        sockJS: Boolean,
+        engineIO: Boolean,
+        sharedHttp: Boolean
     }) => { http: HttpServer, tcp: NetServer }
 */
 function RelayServer(routes, options) {
     options = options || {}
     var timeToLive = options.timeToLive || 20 * 1000
+    var sharedHttp = options.sharedHttp || false
+    var tcp = options.tcp || false
+    var sockJS = options.sockJS || false
+    var engineIO = options.engineIO || true
+
     var sockets = []
     var history = TimePurgedQueue(timeToLive)
 
     var relayHandler = RelayRequestHandler(routes, options, relayMessage)
-    var httpServer = http.createServer()
-    var tcpServer = net.createServer(function netHandler(socket) {
-        var splitted = socket.pipe(split())
+    var readHttpServer = http.createServer()
+    var writeHttpServer = !sharedHttp ? http.createServer() : null
 
-        splitted.once("data", function headerHandler(chunk) {
-            var meta = JSON.parse(chunk)
+    var tcpServer = tcp ? createTCPServer(socketListener, relayMessage) : null
+    var sockHandler = sockJS ? createSockHandler(socketListener) : null
+    var engineServer = engineIO ? createEngineServer(socketListener) : null
 
-            if (meta.uri) {
-                socket.uri = "/?uri=" + meta.uri
-                socketListener(socket)
-            }
-
-            splitted.on("data", relay)
-        })
-    })
-
-    var sock = shoe(function sockHandler(socket) {
-        socket.uri = socket.url
-        socketListener(socket)
-    })
-    var sockHandler = sock.listener({ prefix: "/shoe" }).getHandler()
-    var engineServer = new EngineServer()
-
-    engineServer.on("connection", function engineHandler(socket) {
-        var stream = WebSocketStream(socket)
-        stream.uri = socket.request.url
-
-        socketListener(stream)
-    })
-
-    httpServer.on("request", function onRequest(req, res) {
+    readHttpServer.on("request", function onRequest(req, res) {
         var uri = url.parse(req.url).pathname
 
-        if (uri.substr(0, 5) === "/shoe") {
+        if (sockHandler && uri.substr(0, 5) === "/shoe") {
             sockHandler(req, res)
-        } else if (uri.substr(0, 7) === "/engine") {
+        } else if (engineServer && uri.substr(0, 7) === "/engine") {
             engineServer.handleRequest(req, res)
-        } else {
+        } else if (sharedHttp) {
             relayHandler(req, res)
         }
-
     })
-    httpServer.on("upgrade", function onUpgrade(req, socket, head) {
+
+    readHttpServer.on("upgrade", function onUpgrade(req, socket, head) {
         var uri = url.parse(req.url).pathname
-        if (uri.substr(0, 5) === "/shoe") {
+        if (sockHandler && uri.substr(0, 5) === "/shoe") {
             sockHandler(req, socket, head)
-        } else if (uri.substr(0, 7) === "/engine") {
+        } else if (engineServer && uri.substr(0, 7) === "/engine") {
             engineServer.handleUpgrade(req, socket, head)
         }
     })
 
+    if (!sharedHttp) {
+        writeHttpServer.on("request", relayHandler)
+    }
+
     return {
-        http: httpServer,
+        http: {
+            read: readHttpServer,
+            write: writeHttpServer,
+            server: readHttpServer
+        },
         tcp: tcpServer,
         close: close,
         _sockets: sockets,
         _history: history
-    }
-
-    function relay(chunk) {
-        if (chunk) {
-            var message = JSON.parse(chunk)
-
-            if (typeof message.uri === "string" &&
-                typeof message.verb === "string" &&
-                typeof message.body !== "undefined"
-            ) {
-                relayMessage(new RelayMessage(message.uri,
-                    message.verb, message.body))
-            }
-        }
     }
 
     function relayMessage(message) {
@@ -151,12 +131,83 @@ function RelayServer(routes, options) {
     }
 
     function close(callback) {
-        var forward = after(2, callback)
+        var closeCount = 1
+
+        if (!sharedHttp) {
+            closeCount++
+        }
+        if (tcpServer) {
+            closeCount++
+        }
+
+        var forward = after(closeCount, callback)
 
         history.destroy()
-        engineServer.close()
-        httpServer.close(forward)
-        tcpServer.close(forward)
+        readHttpServer.close(forward)
+
+        if (tcpServer) {
+            tcpServer.close(forward)
+        }
+        if (!sharedHttp) {
+            writeHttpServer.close(forward)
+        }
+        if (engineServer) {
+            engineServer.close()
+        }
+    }
+}
+
+function createEngineServer(socketListener) {
+    var engineServer = new EngineServer()
+
+    engineServer.on("connection", function engineHandler(socket) {
+        var stream = WebSocketStream(socket)
+        stream.uri = socket.request.url
+
+        socketListener(stream)
+    })
+
+    return engineServer
+}
+
+function createSockHandler(socketListener) {
+    var sock = shoe(function sockHandler(socket) {
+        socket.uri = socket.url
+        socketListener(socket)
+    })
+    var sockHandler = sock.listener({ prefix: "/shoe" }).getHandler()
+
+    return sockHandler
+}
+
+function createTCPServer(socketListener, relayMessage) {
+    return net.createServer(function netHandler(socket) {
+        var splitted = socket.pipe(split())
+
+        splitted.once("data", function headerHandler(chunk) {
+            var meta = JSON.parse(chunk)
+
+            if (meta.uri) {
+                socket.uri = "/?uri=" + meta.uri
+                socketListener(socket)
+            }
+
+            splitted.on("data", relay)
+        })
+    })
+
+    function relay(chunk) {
+        if (chunk) {
+            var message = JSON.parse(chunk)
+
+            if (typeof message.uri === "string" &&
+                typeof message.verb === "string" &&
+                typeof message.body !== "undefined"
+            ) {
+                relayMessage(new RelayMessage(message.uri,
+                    message.verb, message.body))
+            }
+        }
     }
 }
 
