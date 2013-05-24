@@ -24,7 +24,7 @@ module.exports = RelayServer
         body: Any
     }>)
 
-    type ReadRouteHandler := (req, String, { params: splats }, Callback<{
+    type ReadRouteHandler := (req, String, { params,splats }, Callback<{
         verb: String,
         uri: String,
         body: Any

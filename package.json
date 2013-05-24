@@ -21,7 +21,7 @@
     "send-data": "~1.1.2",
     "split": "~0.2.5",
     "after": "~0.7.0",
-    "shoe": "0.0.10",
+    "shoe": "0.0.11",
     "engine.io": "git://github.com/Raynos/engine.io",
     "websocket-stream": "0.0.5",
     "xtend": "~2.0.4"

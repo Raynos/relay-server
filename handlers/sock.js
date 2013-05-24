@@ -1,5 +1,5 @@
 var url = require("url")
-var shoe = require("../lib/patched-shoe")
+var shoe = require("shoe")
 
 module.exports = createSockHandler
 
