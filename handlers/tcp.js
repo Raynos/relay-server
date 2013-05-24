@@ -1,7 +1,8 @@
 var net = require("net")
 var split = require("split")
 
-var RelayMessage = require("../relay-message")
+var RelayMessage = require("../messages/relay-message")
+var validMessage = require("../messages/valid-message")
 
 module.exports = createTCPServer
 
@@ -13,7 +14,7 @@ function createTCPServer(socketListener, relayMessage) {
             var meta = JSON.parse(chunk)
 
             if (meta.uri) {
-                socket.uri = "/?uri=" + meta.uri
+                socket.uri = meta.uri
                 socketListener(socket, socket)
             }
 
@@ -25,10 +26,7 @@ function createTCPServer(socketListener, relayMessage) {
         if (chunk) {
             var message = JSON.parse(chunk)
 
-            if (typeof message.uri === "string" &&
-                typeof message.verb === "string" &&
-                typeof message.body !== "undefined"
-            ) {
+            if (validMessage(message)) {
                 relayMessage(new RelayMessage(message.uri,
                     message.verb, message.body))
             }

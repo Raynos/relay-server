@@ -2,21 +2,21 @@ var url = require("url")
 var sendError = require("send-data/error")
 var Router = require("routes")
 
-var RelayMessage = require("../relay-message")
+var RelayMessage = require("../messages/relay-message")
+var RequestOptions = require("../messages/request-options")
+var validMessage = require("../messages/valid-message")
 
 module.exports = RelayRequestHandler
 
 function RelayRequestHandler(options, relayMessage) {
     var notFound = options.notFound || fourofour
     var errorHandler = options.errorHandler || sendError
-    var writeRoutes = options.writeRoutes
+    var writeRoutes = options.writeRoutes || {}
 
     var router = Router()
 
     Object.keys(writeRoutes).forEach(function (route) {
-        var handler = writeRoutes[route]
-
-        router.addRoute(route, handler)
+        router.addRoute(route, writeRoutes[route])
     })
 
     return requestHandler
@@ -35,14 +35,7 @@ function RelayRequestHandler(options, relayMessage) {
                     return errorHandler(req, res, err)
                 }
 
-                if (!message) {
-                    return
-                }
-
-                if (typeof message.uri === "string" &&
-                    typeof message.verb === "string" &&
-                    "body" in message
-                ) {
+                if (validMessage(message)) {
                     relayMessage(new RelayMessage(message.uri,
                         message.verb, message.body))
                 }
@@ -53,9 +46,4 @@ function RelayRequestHandler(options, relayMessage) {
 function fourofour(req, res) {
     res.statusCode = 404
     res.end("404 Not Found")
-}
-
-function RequestOptions(params, splats) {
-    this.params = params || null
-    this.splats = splats || null
 }
