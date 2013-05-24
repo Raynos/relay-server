@@ -112,10 +112,10 @@ function MessageRelay(sockets) {
 
         for (var i = 0; i < sockets.length; i++) {
             var socketMessage = sockets[i]
-            var regexp = socketMessage.regexp
+            var prefix = socketMessage.prefix
             var socket = socketMessage.socket
 
-            if (regexp.test(message.uri)) {
+            if (message.uri.substr(0, prefix.length) === prefix) {
                 if (socketMessage.loading) {
                     socketMessage.queue.push(buffer)
                 } else {

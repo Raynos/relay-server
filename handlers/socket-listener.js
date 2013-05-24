@@ -83,10 +83,9 @@ function SocketListener(sockets, options) {
     }
 }
 
-function SocketMessage(socket, uri) {
+function SocketMessage(socket, prefix) {
     this.socket = socket
-    this.uri = uri
-    this.regexp = Router.pathToRegExp(uri)
+    this.prefix = prefix
     this.loading = true
     this.queue = []
 }
