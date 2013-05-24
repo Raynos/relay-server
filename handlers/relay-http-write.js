@@ -6,14 +6,15 @@ var RelayMessage = require("../relay-message")
 
 module.exports = RelayRequestHandler
 
-function RelayRequestHandler(routes, options, relayMessage) {
+function RelayRequestHandler(options, relayMessage) {
     var notFound = options.notFound || fourofour
     var errorHandler = options.errorHandler || sendError
+    var writeRoutes = options.writeRoutes
 
     var router = Router()
 
-    Object.keys(routes).forEach(function (route) {
-        var handler = routes[route]
+    Object.keys(writeRoutes).forEach(function (route) {
+        var handler = writeRoutes[route]
 
         router.addRoute(route, handler)
     })

@@ -10,7 +10,7 @@ function createEngineServer(socketListener) {
         var stream = WebSocketStream(socket)
         stream.uri = socket.request.url
 
-        socketListener(stream)
+        socketListener(stream, socket.request)
     })
 
     return engineServer

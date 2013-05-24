@@ -13,6 +13,7 @@ var defaults = {
     tcp: false,
     sockJS: false,
     engineIO: true,
+    writeRoutes: {},
     sharedHttp: false,
     timeToLive: 20 * 1000
 }
@@ -26,12 +27,13 @@ module.exports = RelayServer
         body: Any
     }>)
 
-    RelayServer := (routes: Object<String, RouteHandler>, options: {
+    RelayServer := (options: {
         notFound: (req, res) => void,
         errorHandler: (req, res) => void,
         timeToLive: Number,
         tcp: Boolean,
         sockJS: Boolean,
+        writeRoutes: Object<String, RouteHandler>,
         engineIO: Boolean,
         sharedHttp: Boolean
     }) => {
@@ -48,6 +50,7 @@ module.exports = RelayServer
         notFound: null,
         errorHandler: null,
         timeToLive: 20000,
+        writeRoutes: {},
         tcp: false,
         sockJS: false,
         engineIO: true,
@@ -57,9 +60,8 @@ module.exports = RelayServer
     which means create two HTTP servers one for writing messages
         to and one for relaying messages over engine.io
 */
-function RelayServer(routes, options) {
+function RelayServer(options) {
     options = extend(defaults, options || {})
-    options.routes = routes
 
     var sockets = []
     var history = TimePurgedQueue(options.timeToLive)
@@ -113,7 +115,7 @@ function RelayServer(routes, options) {
             socket in the sockets array and relayMessage will write any
             real time `RelayMessage`'s to this socket.
     */
-    function socketListener(socket) {
+    function socketListener(socket, request) {
         var metaUri = url.parse(socket.uri, true).query.uri
 
         var metaRegexp = Router.pathToRegExp(metaUri)

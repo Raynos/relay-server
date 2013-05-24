@@ -1,5 +1,6 @@
 var url = require("url")
 var net = require("net")
+
 var request = require("request")
 var test = require("tape")
 var jsonBody = require("body/json")
@@ -23,18 +24,32 @@ test("RelayServer is a function", function (assert) {
 
 test("create server", function (assert) {
     servers = RelayServer({
-        "/*": function acceptEverything(req, res, _, callback) {
-            var pathname = url.parse(req.url).pathname
-            jsonBody(req, res, function (err, body) {
-                if (err) {
-                    return callback(err)
-                }
+        writeRoutes: {
+            "/*": function acceptEverything(req, res, _, callback) {
+                var pathname = url.parse(req.url).pathname
+                jsonBody(req, res, function (err, body) {
+                    if (err) {
+                        return callback(err)
+                    }
 
-                callback(null, { uri: pathname, verb: req.method, body: body })
-                sendJson(req, res, "OK")
-            })
-        }
-    }, {
+                    callback(null, {
+                        uri: pathname,
+                        verb: req.method,
+                        body: body
+                    })
+                    sendJson(req, res, "OK")
+                })
+            }
+        },
+        readRoutes: {
+            "/*": function returnNothing(req, pathname, _, callback) {
+                callback(null, {
+                    uri: pathname,
+                    verb: "PATCH",
+                    body: {}
+                })
+            }
+        },
         sharedHttp: true,
         sockJS: true,
         tcp: true
@@ -91,7 +106,7 @@ test("POST with open socket", function (assert) {
     })
 })
 
-test("POST with open sockJS socket", function (assert) {
+test("POST with open (websocket) sockJS socket", function (assert) {
     var id = uuid()
 
     var socket = new WebSocket("ws://localhost:" + HTTP_PORT +

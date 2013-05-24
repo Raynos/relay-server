@@ -14,7 +14,7 @@ function createTCPServer(socketListener, relayMessage) {
 
             if (meta.uri) {
                 socket.uri = "/?uri=" + meta.uri
-                socketListener(socket)
+                socketListener(socket, socket)
             }
 
             splitted.on("data", relay)
