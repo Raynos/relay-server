@@ -30,6 +30,8 @@ function createHttpServers(options, socketListener, relayMessage) {
             engineServer.handleRequest(req, res)
         } else if (sharedHttp) {
             relayHandler(req, res)
+        } else {
+            res.end("Welcome to Relay Server")
         }
     })
 
